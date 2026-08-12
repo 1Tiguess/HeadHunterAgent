@@ -221,34 +221,54 @@ def is_skill_path(path: str) -> bool:
 # payload hidden after && or | is classified on its own merits.
 _SEPARATORS = re.compile(r"\|\||&&|\||;|&|\n")
 
+# Quoted spans are *data*, not commands. Blanking them is what stops the gate
+# firing on a command that merely mentions an install — writing docs about
+# `claude plugin install`, or piping a JSON payload that contains the phrase.
+_QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"", re.S)
+
+# ...except when the quoted span is handed to a shell, in which case it very
+# much is a command. Pulled out and classified on its own before blanking.
+_NESTED_EXEC = re.compile(
+    r"\b(?:(?:ba|z|k|da)?sh|eval)\b\s*(?:-[a-zA-Z]+\s*)*(?P<q>['\"])(?P<body>.*?)(?P=q)",
+    re.S,
+)
+
+# Prefixes that stand in front of the real command without being it.
+_WRAPPER = re.compile(
+    r"^\s*(?:(?:sudo|env|time|nohup|command|nice|stdbuf|setsid)\s+(?:-\S+\s+|\w+=\S+\s+)*)*"
+)
+
 # Acquiring a *discovered skill* by download is denied in every state, cleared
 # included. Approval cannot authorize it either: HeadHunter studies published
 # skills and writes build instructions for an equivalent, never installs one.
+#
+# Anchored at ^ because these are matched against a single subcommand with its
+# wrappers stripped — a command name occupies the head position, and anything
+# later in the string is an argument, not an invocation.
 _SKILL_ACQUISITION_PATTERNS = (
-    re.compile(r"\bclaude\s+plugin\s+(install|add)\b"),
-    re.compile(r"\bclaude\s+plugin\s+marketplace\s+add\b"),
-    re.compile(r"\bgit\s+clone\b.*\b(skill|plugin|agent)s?\b", re.I),
-    re.compile(r"\b(curl|wget|aria2c)\b.*\bSKILL\.md\b", re.I),
-    re.compile(r"\b(curl|wget|aria2c)\b.*\.claude[/\\](skills|agents|plugins)\b", re.I),
-    re.compile(r"\bcp\b.*\b(downloads?|tmp)\b.*\.claude[/\\](skills|agents)\b", re.I),
+    re.compile(r"^claude\s+plugin\s+(install|add)\b"),
+    re.compile(r"^claude\s+plugin\s+marketplace\s+add\b"),
+    re.compile(r"^git\s+clone\b.*\b(skill|plugin|agent)s?\b", re.I),
+    re.compile(r"^(curl|wget|aria2c)\b.*\bSKILL\.md\b", re.I),
+    re.compile(r"^(curl|wget|aria2c)\b.*\.claude[/\\](skills|agents|plugins)\b", re.I),
+    re.compile(r"^cp\b.*\b(downloads?|tmp)\b.*\.claude[/\\](skills|agents)\b", re.I),
 )
 
 _INSTALL_PATTERNS = (
-    re.compile(r"\bgit\s+clone\b"),
-    re.compile(r"\b(npm|pnpm|yarn|bun)\s+(i|install|add|create)\b"),
-    re.compile(r"\bnpx\b"),
-    re.compile(r"\b(pip|pip3)\s+install\b"),
-    re.compile(r"\buv\s+(pip\s+install|add|tool\s+install)\b"),
-    re.compile(r"\bpoetry\s+add\b"),
-    re.compile(r"\bcargo\s+install\b"),
-    re.compile(r"\bgo\s+(get|install)\b"),
-    re.compile(r"\bgem\s+install\b"),
-    re.compile(r"\bbrew\s+(install|tap)\b"),
-    re.compile(r"\b(apt|apt-get|yum|dnf|apk|pacman)\s+(install|add)\b"),
-    re.compile(r"\bcomposer\s+require\b"),
-    re.compile(r"\b(curl|wget|aria2c)\b"),
-    re.compile(r"\biwr\b|\bInvoke-WebRequest\b|\biex\b"),
-    re.compile(r"\bclaude\s+plugin\s+install\b"),
+    re.compile(r"^git\s+clone\b"),
+    re.compile(r"^(npm|pnpm|yarn|bun)\s+(i|install|add|create)\b"),
+    re.compile(r"^npx\b"),
+    re.compile(r"^(pip|pip3)\s+install\b"),
+    re.compile(r"^uv\s+(pip\s+install|add|tool\s+install)\b"),
+    re.compile(r"^poetry\s+add\b"),
+    re.compile(r"^cargo\s+install\b"),
+    re.compile(r"^go\s+(get|install)\b"),
+    re.compile(r"^gem\s+install\b"),
+    re.compile(r"^brew\s+(install|tap)\b"),
+    re.compile(r"^(apt|apt-get|yum|dnf|apk|pacman)\s+(install|add)\b"),
+    re.compile(r"^composer\s+require\b"),
+    re.compile(r"^(curl|wget|aria2c)\b"),
+    re.compile(r"^(iwr|Invoke-WebRequest|iex)\b"),
 )
 
 # Shell forms that create or overwrite files, i.e. a Write in disguise.
@@ -256,8 +276,34 @@ _REDIRECT = re.compile(r"(?<![0-9<>])>{1,2}\s*(?P<path>[^\s;&|]+)")
 _TEE = re.compile(r"\btee\s+(?:-a\s+)?(?P<path>[^\s;&|]+)")
 
 
+def _executable_fragments(command: str, depth: int = 0) -> list[str]:
+    """Every span of text this command would actually execute.
+
+    The command itself with quoted data blanked out, plus the bodies of any
+    ``sh -c "…"`` / ``eval "…"`` — which are quoted, but are still commands.
+    Recursion is bounded because each nested body is strictly shorter.
+    """
+    frags: list[str] = []
+    if depth < 4:
+        for m in _NESTED_EXEC.finditer(command or ""):
+            body = m.group("body")
+            if body.strip():
+                frags.extend(_executable_fragments(body, depth + 1))
+    frags.append(_QUOTED.sub(" ", command or ""))
+    return frags
+
+
 def subcommands(command: str) -> list[str]:
-    return [c.strip() for c in _SEPARATORS.split(command or "") if c.strip()]
+    """The command split into individually-classifiable invocations, each with
+    its wrapper prefixes (``sudo``, ``env FOO=1``, …) stripped so that the real
+    command name sits at the head of the string."""
+    out: list[str] = []
+    for frag in _executable_fragments(command):
+        for part in _SEPARATORS.split(frag):
+            head = _WRAPPER.sub("", part.strip()).strip()
+            if head:
+                out.append(head)
+    return out
 
 
 def install_hit(command: str) -> str | None:
