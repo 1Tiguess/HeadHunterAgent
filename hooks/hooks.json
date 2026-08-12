@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/arm-gate.py"],
+            "timeout": 10,
+            "statusMessage": "HeadHunter triage"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/build-gate.py"],
+            "timeout": 10,
+            "statusMessage": "HeadHunter pre-flight gate"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "headhunter",
+  "displayName": "HeadHunter",
+  "version": "0.1.0",
+  "description": "A pre-flight gate that makes Claude confirm it has the right skills before it starts a hard build. Studies published skills read-only, writes build instructions for a similar or improved skill, and authors it locally. Never downloads anything.",
+  "author": {
+    "name": "1Tiguess"
+  },
+  "repository": "https://github.com/1Tiguess/HeadHunterAgent",
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "pre-flight",
+    "gate",
+    "supply-chain-safety",
+    "capability-discovery"
+  ],
+  "skills": "./skills/",
+  "agents": ["./agents/skill-scout.md"],
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks.json"
+}

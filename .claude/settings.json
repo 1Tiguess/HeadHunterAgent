@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(claude plugin install *)",
+      "Bash(claude plugin add *)",
+      "Bash(claude plugin marketplace add *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Bash(aria2c *)",
+      "Bash(git clone *)",
+      "Bash(iwr *)",
+      "Bash(Invoke-WebRequest *)",
+      "Bash(iex *)"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PROJECT_DIR}/hooks/arm-gate.py"],
+            "timeout": 10,
+            "statusMessage": "HeadHunter triage"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PROJECT_DIR}/hooks/build-gate.py"],
+            "timeout": 10,
+            "statusMessage": "HeadHunter pre-flight gate"
+          }
+        ]
+      }
+    ]
+  }
+}

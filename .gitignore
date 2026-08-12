@@ -1,0 +1,6 @@
+# HeadHunter runtime state lives outside the repo, but a stray local copy
+# should never be committed.
+.headhunter/state/
+
+__pycache__/
+*.pyc
