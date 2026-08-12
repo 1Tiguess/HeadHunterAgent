@@ -1,6 +1,7 @@
-# HeadHunter runtime state lives outside the repo, but a stray local copy
-# should never be committed.
-.headhunter/state/
+# HeadHunter's per-project working directory: specs and hunt notes for the run
+# in progress. Working material, not source. A spec worth keeping belongs in
+# examples/ or in the project it was written for.
+.headhunter/
 
 __pycache__/
 *.pyc

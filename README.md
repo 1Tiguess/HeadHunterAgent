@@ -138,6 +138,7 @@ skills/headhunt/
     triage-rubric.md           what counts as hard
 agents/skill-scout.md          read-only recon subagent
 commands/                      /headhunt, /headhunt-status, /headhunt-release
+examples/                      a worked build-instructions spec, for shape
 hooks/
   headhunter_lib.py            state, path and command classification
   arm-gate.py                  UserPromptSubmit — triage and arm
