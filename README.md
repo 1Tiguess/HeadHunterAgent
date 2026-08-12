@@ -138,12 +138,13 @@ skills/headhunt/
     triage-rubric.md           what counts as hard
 agents/skill-scout.md          read-only recon subagent
 commands/                      /headhunt, /headhunt-status, /headhunt-release
+examples/                      a worked build-instructions spec, for shape
 hooks/
   headhunter_lib.py            state, path and command classification
   arm-gate.py                  UserPromptSubmit — triage and arm
   build-gate.py                PreToolUse — allow or deny
   set-state.py                 advance the gate; how clearance is granted
-tests/run-tests.sh             48 behaviour tests over the hooks
+tests/run-tests.sh             58 behaviour tests over the hooks
 ```
 
 ## Tests
@@ -153,12 +154,16 @@ bash tests/run-tests.sh
 ```
 
 Pipes payloads at the hooks and asserts the decisions — including that corrupt state
-fails open, that clearance can't leak across sessions, and that skill downloads are
-refused in every state including `cleared`.
+fails open, that clearance can't leak across sessions, that skill downloads are refused
+in every state including `cleared`, and that a command *mentioning* an install isn't
+mistaken for one that performs it.
 
 ## Limits
 
 - Hooks only inspect commands they can parse. Layer 1 is the real boundary.
+- Command classification blanks quoted spans so that quoting an install in docs or a
+  payload doesn't trip the gate, while still unwrapping `sh -c` and `eval` bodies. It is
+  a good heuristic, not a shell parser.
 - `set-state.py` targets the most recently updated session by default, because Claude
   Code doesn't export a session id to Bash. Pass `--session` when several sessions run
   against the same machine.

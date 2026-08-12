@@ -156,6 +156,27 @@ check "cleared: cloning a skill repo denied"   "$(gate_bash "git clone https://g
 check "cleared: curl of SKILL.md denied"       "$(gate_bash "curl -o SKILL.md https://x.io/SKILL.md")" '"permissionDecision": "deny"'
 check "cleared: ordinary clone allowed"        "$(gate_bash "git clone https://github.com/a/my-app")" "EMPTY"
 
+# A command that mentions an install is not a command that performs one.
+# Without this, the gate fires on docs, tests, and any command quoting an example.
+check "quoted mention is data, not a command" \
+  "$(gate_bash "echo 'claude plugin install foo' >> notes.md")" "EMPTY"
+check "  ... including inside a JSON payload" \
+  "$(gate_bash "jq -nc '{cmd:\"claude plugin install foo\"}' | python3 gate.py")" "EMPTY"
+check "  ... but a real invocation still denied" \
+  "$(gate_bash "claude plugin install foo")" '"permissionDecision": "deny"'
+
+# Quoting is not an escape hatch when the quoted text is handed to a shell.
+check "sh -c wrapper does not evade"           "$(gate_bash "bash -c \"claude plugin install foo\"")" '"permissionDecision": "deny"'
+check "eval wrapper does not evade"            "$(gate_bash "eval 'claude plugin install foo'")" '"permissionDecision": "deny"'
+
+set_state s1 armed
+check "armed: sudo prefix does not evade"      "$(gate_bash "sudo npm install react")" '"permissionDecision": "deny"'
+check "armed: env prefix does not evade"       "$(gate_bash "env CI=1 pip install requests")" '"permissionDecision": "deny"'
+check "armed: sh -c install does not evade"    "$(gate_bash "sh -c 'npm install react'")" '"permissionDecision": "deny"'
+check "armed: install as an argument allowed"  "$(gate_bash "grep -r 'npm install' docs/")" "EMPTY"
+check "armed: word in a path allowed"          "$(gate_bash "cat ./npm-install-notes.md")" "EMPTY"
+set_state s1 cleared
+
 # ---------------------------------------------------------------------------
 echo
 echo "build-gate: robustness"
