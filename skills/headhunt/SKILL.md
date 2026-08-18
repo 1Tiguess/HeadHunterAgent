@@ -70,6 +70,10 @@ Find out what Claude already has, before looking anywhere else.
 - `SearchSkills` — matches against the skill's subject matter
 - `ListPlugins` / `SearchPlugins` — capability bundled in plugins
 - Read `.claude/skills/`, `~/.claude/skills/`, `.claude/agents/`
+- **Check the bundled locations too** — `/mnt/skills/public/` and
+  `/mnt/skills/examples/` on environments that have them. These are published skills
+  sitting on local disk. They are usually *not* enabled, so they are not a Tier 0 hit —
+  but they are the best Phase 4 material available, and reading one costs no network.
 
 **If an existing skill covers the work, you are done.** Say which one, clear the gate,
 and build. Most tasks should end here. Do not hunt for a skill you already have.
