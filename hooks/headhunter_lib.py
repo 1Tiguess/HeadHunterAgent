@@ -196,6 +196,21 @@ def is_spec_path(path: str, cwd: str) -> bool:
     return f"{os.sep}.headhunter{os.sep}" in _norm(path) + os.sep
 
 
+# Claude Code's plan-mode scratch area. A plan is the agent writing down what it
+# intends to do, which is the opposite of building — so it stays writable in every
+# state, for the same reason ``.headhunter/`` does: the gate must never block the
+# deliberation it exists to force. Without this the gate also cannot be repaired
+# from inside the armed state it creates, since ``hooks/`` is ordinary source.
+_PLANS_DIR = re.compile(r"[/\\]\.claude[/\\]plans[/\\]")
+
+
+def is_plan_path(path: str) -> bool:
+    """Claude Code's own plan file. Always writable, like ``.headhunter/``."""
+    if not path:
+        return False
+    return bool(_PLANS_DIR.search(_norm(path)))
+
+
 SKILL_DIR_PATTERNS = (
     re.compile(r"[/\\]\.claude[/\\]skills[/\\]"),
     re.compile(r"[/\\]\.claude[/\\]agents[/\\]"),
@@ -225,6 +240,24 @@ _SEPARATORS = re.compile(r"\|\||&&|\||;|&|\n")
 # firing on a command that merely mentions an install — writing docs about
 # `claude plugin install`, or piping a JSON payload that contains the phrase.
 _QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"", re.S)
+
+# A heredoc body is data handed to a command on stdin — the same category as a
+# quoted span, and blanked for the same reason. Without this, writing prose or
+# source by heredoc trips the gate on its own content: a markdown blockquote
+# (`> text`), a literal `>>`, a Rust `->`, a JS `=>`, a generic `List<T>` or a
+# regex named group all read as shell redirects, because _REDIRECT's lookbehind
+# only excludes `[0-9<>]`. Matches <<TAG, <<'TAG', <<"TAG" and the <<-TAG
+# indented form, up to the tag alone on its own line.
+#
+# Known limit: an *unterminated* heredoc does not match and its body is still
+# scanned. Such a command is malformed shell anyway, and failing to blank
+# produces a spurious denial rather than a missed one — the safe direction.
+_HEREDOC = re.compile(
+    r"<<-?[ \t]*(['\"]?)(?P<tag>[A-Za-z_][A-Za-z0-9_]*)\1"
+    r"(?P<body>.*?)"
+    r"^[ \t]*(?P=tag)[ \t]*$",
+    re.S | re.M,
+)
 
 # ...except when the quoted span is handed to a shell, in which case it very
 # much is a command. Pulled out and classified on its own before blanking.
@@ -282,7 +315,12 @@ def _executable_fragments(command: str, depth: int = 0) -> list[str]:
     The command itself with quoted data blanked out, plus the bodies of any
     ``sh -c "…"`` / ``eval "…"`` — which are quoted, but are still commands.
     Recursion is bounded because each nested body is strictly shorter.
+
+    Heredoc bodies are blanked first, ahead of both the nested-exec scan and the
+    quote blanking, so a heredoc body can neither contribute a phantom redirect
+    nor smuggle a fake ``sh -c "…"`` back into classification.
     """
+    command = _HEREDOC.sub(" ", command or "")
     frags: list[str] = []
     if depth < 4:
         for m in _NESTED_EXEC.finditer(command or ""):

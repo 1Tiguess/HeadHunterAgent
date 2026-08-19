@@ -70,6 +70,10 @@ Find out what Claude already has, before looking anywhere else.
 - `SearchSkills` — matches against the skill's subject matter
 - `ListPlugins` / `SearchPlugins` — capability bundled in plugins
 - Read `.claude/skills/`, `~/.claude/skills/`, `.claude/agents/`
+- **Check the bundled locations too** — `/mnt/skills/public/` and
+  `/mnt/skills/examples/` on environments that have them. These are published skills
+  sitting on local disk. They are usually *not* enabled, so they are not a Tier 0 hit —
+  but they are the best Phase 4 material available, and reading one costs no network.
 
 **If an existing skill covers the work, you are done.** Say which one, clear the gate,
 and build. Most tasks should end here. Do not hunt for a skill you already have.
@@ -129,9 +133,11 @@ hooks/set-state.py equipping --spec .headhunter/specs/<name>.md
 Write the `SKILL.md` yourself, from the instructions, in your own words. No pasted
 blocks from any source you read.
 
-Then **`Read` the file you just wrote back into context.** Newly authored skills are
-not hot-loaded mid-session, so reading it is what makes the technique available for
-the build that follows. It will load normally in future sessions.
+Then **`Read` the file you just wrote back into context.** Cheap insurance, not the
+mechanism: on Claude Code for the web, newly authored skills and agents were observed
+registering mid-session without a restart. Do not rely on that holding everywhere —
+read the file back and you are correct either way. If you authored it in this session
+its content is already in context, so a spot-check of the frontmatter is enough.
 
 ```bash
 hooks/set-state.py cleared --rationale "authored <name>; <what it adds>"

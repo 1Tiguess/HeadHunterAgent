@@ -209,6 +209,64 @@ check "empty prompt does not arm" \
 
 # ---------------------------------------------------------------------------
 echo
+echo "build-gate: plan mode is not a build"
+# ---------------------------------------------------------------------------
+# Claude Code writes its plan file to <config>/.claude/plans/. A plan is the agent
+# recording what it intends to do, which is the opposite of building — and blocking
+# it also traps the gate, since repairing hooks/ needs a clearance the block impedes.
+reset_state
+set_state s1 armed
+check "armed: user-level plan file allowed"    "$(gate_write "$HOME/.claude/plans/p.md")"      "EMPTY"
+check "armed: project plan file allowed"       "$(gate_write "$PROJECT/.claude/plans/p.md")"   "EMPTY"
+check "armed: nested plan file allowed"        "$(gate_write "$HOME/.claude/plans/a/b.md")"    "EMPTY"
+check "armed: redirect into plans allowed"     "$(gate_bash "echo x > $PROJECT/.claude/plans/p.md")" "EMPTY"
+check "armed: 'plansible' lookalike still denied" \
+  "$(gate_write "$PROJECT/.claude/plansible/x.ts")" "permissionDecision"
+check "armed: bare plans/ dir still denied"    "$(gate_write "$PROJECT/plans/x.ts")"           "permissionDecision"
+
+# ---------------------------------------------------------------------------
+echo
+echo "build-gate: heredoc bodies are data"
+# ---------------------------------------------------------------------------
+# A heredoc body is stdin handed to a command — the same category as a quoted span.
+# Unblanked, ordinary prose and source trip the redirect scanner on their own
+# content, because _REDIRECT's lookbehind only excludes [0-9<>].
+reset_state
+set_state s1 armed
+check "heredoc: markdown blockquote in body" \
+  "$(gate_bash $'cat > .headhunter/x.md <<\'EOF\'\n> HeadHunter refuses this\nEOF')" "EMPTY"
+check "heredoc: literal >> in prose" \
+  "$(gate_bash $'cat > .headhunter/x.md <<\'EOF\'\nsee >> appendix\nEOF')" "EMPTY"
+check "heredoc: rust return arrow in body" \
+  "$(gate_bash $'cat > .headhunter/x.md <<\'EOF\'\nfn f() -> String {}\nEOF')" "EMPTY"
+check "heredoc: js arrow fn in body" \
+  "$(gate_bash $'cat > .headhunter/x.md <<\'EOF\'\nconst f = () => 1\nEOF')" "EMPTY"
+check "heredoc: generic type in body" \
+  "$(gate_bash $'cat > .headhunter/x.md <<\'EOF\'\nVec<T> and List<int>\nEOF')" "EMPTY"
+check "heredoc: documented install is not an install" \
+  "$(gate_bash $'cat > .headhunter/x.md <<\'EOF\'\nnpm install foo\nEOF')" "EMPTY"
+check "heredoc: indented <<- form blanked" \
+  "$(gate_bash $'cat > .headhunter/x.md <<-EOF\n\t> quoted\n\tEOF')" "EMPTY"
+check "heredoc: double-quoted tag blanked" \
+  "$(gate_bash $'cat > .headhunter/x.md <<"EOF"\n> quoted\nEOF')" "EMPTY"
+
+# ... and the patch must not blunt the gate.
+check "heredoc: real target still classified" \
+  "$(gate_bash $'cat > src/x.ts <<\'EOF\'\nhello\nEOF')" "permissionDecision"
+check "heredoc: body naming .headhunter does not launder target" \
+  "$(gate_bash $'cat > src/x.ts <<\'EOF\'\n.headhunter/ is writable\nEOF')" "permissionDecision"
+check "heredoc: install after the body still caught" \
+  "$(gate_bash $'cat > .headhunter/x.md <<\'EOF\'\nprose\nEOF\nnpm install react')" "permissionDecision"
+
+reset_state
+set_state s1 cleared
+check "cleared: documenting a plugin install is not performing one" \
+  "$(gate_bash $'cat > .headhunter/x.md <<\'EOF\'\nclaude plugin install foo\nEOF')" "EMPTY"
+check "cleared: an actual plugin install is still refused" \
+  "$(gate_bash "claude plugin install foo")" "permissionDecision"
+
+# ---------------------------------------------------------------------------
+echo
 echo "set-state: transitions"
 # ---------------------------------------------------------------------------
 reset_state

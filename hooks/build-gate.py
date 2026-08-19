@@ -80,8 +80,8 @@ def main() -> None:
         if not path:
             hh.bail_open()  # nothing to classify: fail open
 
-        if hh.is_spec_path(path, cwd):
-            hh.bail_open()  # HeadHunter's own working area, always writable
+        if hh.is_spec_path(path, cwd) or hh.is_plan_path(path):
+            hh.bail_open()  # HeadHunter's working area, or Claude Code's plan file
 
         if status == hh.EQUIPPING and hh.is_skill_path(path):
             hh.bail_open()  # authoring skills is the sanctioned work of this phase
@@ -118,7 +118,7 @@ def main() -> None:
 
         # A shell redirect that creates a source file is a Write in disguise.
         for target in hh.redirect_targets(command):
-            if hh.is_spec_path(target, cwd):
+            if hh.is_spec_path(target, cwd) or hh.is_plan_path(target):
                 continue
             if status == hh.EQUIPPING and hh.is_skill_path(target):
                 continue
