@@ -4,8 +4,9 @@ The first time HeadHunter was run against real work rather than synthetic hook p
 Ten project briefs, put through the live protocol in one session, on a machine where the
 gate was armed and enforcing.
 
-**Result: the protocol works, and the run found four defects — two of them in the gate's
-own path classification, both now fixed with tests.**
+**Result: the protocol works, and the run found five defects — two of them in the gate's
+own path classification, both now fixed with tests.** A sixth section records the two
+places the run deliberately departed from the protocol.
 
 ## What was tested
 
@@ -173,7 +174,34 @@ be egress-blocked.
 **Fixed.** Phase 2 of `skills/headhunt/SKILL.md` now names the bundled locations and
 explains what they are and are not.
 
-### #5 — Protocol deviations, disclosed
+### #5 — Newly authored skills and agents *did* hot-load
+
+Observed immediately after the run, when the session picked up its own output: all six
+authored skills appeared in the available-skills list, and **`skill-scout` became a
+spawnable agent type** with its `tools: WebSearch, WebFetch, Read, Grep, Glob` intact. No
+restart.
+
+Two consequences.
+
+**Layer 3 became active mid-session.** The Finding #2 mitigation is not merely staged for
+next time — the tool-starved scout exists now, in the session that identified its absence.
+
+**Two docs were stale.** `README.md` said under Limits that newly authored skills are not
+hot-loaded, and `SKILL.md`'s Phase 7 gave that as the *reason* for the read-back step.
+Anthropic's own skills reference — read during the Quarry and Drift hunts — states that
+edits to `SKILL.md` are picked up live without restarting, which matches what happened
+here.
+
+**Fixed**, without removing the step. The read-back is cheap and the behaviour may differ
+by surface, so it stays — but it is now framed as insurance rather than as the mechanism
+that makes the technique available. `SKILL.md` also now notes that when you authored the
+file in the current session its content is already in context, so a frontmatter spot-check
+suffices. That is the deviation recorded below, promoted to guidance.
+
+Worth being precise about the limit of this finding: it was observed on **Claude Code for
+the web**, once. It is not established for the CLI, the desktop app, or IDE extensions.
+
+### #6 — Protocol deviations, disclosed
 
 Two, both deliberate:
 

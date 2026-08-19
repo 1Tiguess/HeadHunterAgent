@@ -167,8 +167,11 @@ mistaken for one that performs it.
 - `set-state.py` targets the most recently updated session by default, because Claude
   Code doesn't export a session id to Bash. Pass `--session` when several sessions run
   against the same machine.
-- Newly authored skills aren't hot-loaded mid-session, so the protocol reads the file
-  it just wrote back into context. It loads normally in later sessions.
+- Newly authored skills and agents **were** picked up mid-session on Claude Code for the
+  web, without a restart — an earlier version of this list claimed the opposite. Phase 7
+  still reads the authored file back, because it is cheap and this may not hold on every
+  surface, but treat it as a safety net rather than the mechanism that makes the skill
+  available.
 - Triage is a keyword heuristic with a judgement pass on top. It will occasionally arm
   on something small — clear it and move on.
 
