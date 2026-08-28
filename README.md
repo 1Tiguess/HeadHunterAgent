@@ -91,17 +91,50 @@ download. A determined adversary who controls the prompt is out of scope.
 
 ## Install
 
-As a plugin, into any project:
-
 ```bash
 git clone https://github.com/1Tiguess/HeadHunterAgent
+cd HeadHunterAgent
+bash install.sh --dry-run   # see what it does
+bash install.sh             # copy the skill, agent and commands into ~/.claude/
 ```
 
-Then point Claude Code at it as a local plugin. The repo root *is* the plugin —
-`.claude-plugin/plugin.json` is at the top level.
+`install.sh` copies the pieces and then **prints** the hooks block for you to merge into
+`~/.claude/settings.json`. It does not edit that file itself — merging JSON into a config you
+may already have tuned is not something a script should do behind your back.
 
-To use it in one project only, copy `skills/headhunt/`, `agents/skill-scout.md`, and
-`hooks/` into that project's `.claude/`, and merge `.claude/settings.json`.
+Three things about a global install that are easy to get wrong:
+
+- **Use absolute paths in user-level config, never `${CLAUDE_PROJECT_DIR}`.** That variable
+  resolves to whichever project is currently open, not to this checkout, so the hooks silently
+  never run. `install.sh` fills the path in for you.
+- **Don't take the network deny rules global.** See below.
+- **`claude plugin install` will not work**, because HeadHunter refuses it — see the note
+  under the deny list.
+
+For one project only, copy `skills/headhunt/`, `agents/skill-scout.md` and `hooks/` into that
+project's `.claude/`, and merge `.claude/settings.json` — remembering that the hook paths then
+need the extra `.claude/` segment.
+
+### Relaxing the permission rules
+
+The shipped deny list blocks `curl`, `wget`, `git clone` and the PowerShell fetch verbs, which
+is the strict reading and the right default **for one repo**. Globally it is disproportionate —
+it breaks ordinary work in every project you own. `install.sh` therefore proposes only the three
+`claude plugin install` rules for user-level config, which are the ones that matter for skill
+acquisition and never interfere with normal work. Add the network rules per-project where a repo
+warrants them.
+
+You are not losing much by that split: `build-gate.py` refuses skill downloads independently in
+every state, and `skill-scout` has no `Bash` at all. Layers 2 and 3 stay intact.
+
+> **HeadHunter refuses its own plugin installation.** `claude plugin install` is matched
+> source-agnostically, so running it from inside a checkout where the hooks are already live
+> blocks the install. Use `install.sh`, which needs no plugin command at all.
+
+### Skills the protocol has authored
+
+Runs produce skills, and those are kept separately in [`authored-skills/`](authored-skills/) —
+they are outputs of the gate, not part of it. Install them with `bash install-skills.sh`.
 
 ### Relaxing the permission rules
 
@@ -138,13 +171,18 @@ skills/headhunt/
     triage-rubric.md           what counts as hard
 agents/skill-scout.md          read-only recon subagent
 commands/                      /headhunt, /headhunt-status, /headhunt-release
-examples/                      a worked build-instructions spec, for shape
+authored-skills/               skills the protocol has produced — outputs, not part of the gate
+examples/
+  web-app-foundations.spec.md  a worked build-instructions spec, for shape
+  test-run-2026-08/            the first end-to-end run: plans, hunts, specs, findings
 hooks/
   headhunter_lib.py            state, path and command classification
   arm-gate.py                  UserPromptSubmit — triage and arm
   build-gate.py                PreToolUse — allow or deny
   set-state.py                 advance the gate; how clearance is granted
-tests/run-tests.sh             58 behaviour tests over the hooks
+install.sh                     install the gate into ~/.claude/
+install-skills.sh              install authored-skills/ into ~/.claude/skills/
+tests/run-tests.sh             77 behaviour tests over the hooks
 ```
 
 ## Tests
@@ -161,6 +199,10 @@ mistaken for one that performs it.
 ## Limits
 
 - Hooks only inspect commands they can parse. Layer 1 is the real boundary.
+- Shell writes are detected through redirection (`>`, `>>`, `tee`) only. `cp`, `mv`,
+  `install`, `rsync` and `sed -i` write files without being classified as build writes, so a
+  determined agent can route around the gate with any of them. Enumerating every
+  file-writing command is a losing game; this is a discipline mechanism, not a sandbox.
 - Command classification blanks quoted spans so that quoting an install in docs or a
   payload doesn't trip the gate, while still unwrapping `sh -c` and `eval` bodies. It is
   a good heuristic, not a shell parser.
