@@ -136,14 +136,6 @@ every state, and `skill-scout` has no `Bash` at all. Layers 2 and 3 stay intact.
 Runs produce skills, and those are kept separately in [`authored-skills/`](authored-skills/) —
 they are outputs of the gate, not part of it. Install them with `bash install-skills.sh`.
 
-### Relaxing the permission rules
-
-The shipped deny list blocks `curl`, `wget`, and `git clone` everywhere, which is the
-strict reading and the safe default. If a project genuinely needs them for ordinary
-work, drop those three lines from `permissions.deny` in `.claude/settings.json`. Leave
-the `claude plugin install` rules — those are the ones that matter for skill
-acquisition, and layer 2 keeps enforcing them regardless.
-
 ## Usage
 
 Mostly you don't. It arms itself when you ask for a build.
