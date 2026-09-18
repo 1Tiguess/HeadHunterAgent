@@ -167,6 +167,7 @@ authored-skills/               skills the protocol has produced — outputs, not
 examples/
   web-app-foundations.spec.md  a worked build-instructions spec, for shape
   test-run-2026-08/            the first end-to-end run: plans, hunts, specs, findings
+  run-2026-09/                 the second run, under a near-total egress blockade
 hooks/
   headhunter_lib.py            state, path and command classification
   arm-gate.py                  UserPromptSubmit — triage and arm
@@ -195,6 +196,13 @@ mistaken for one that performs it.
   `install`, `rsync` and `sed -i` write files without being classified as build writes, so a
   determined agent can route around the gate with any of them. Enumerating every
   file-writing command is a losing game; this is a discipline mechanism, not a sandbox.
+- **Redirect targets are classified as literal strings, so a relative or variable path is
+  misread.** `cd ~/.claude/skills/x/references && cat > notes.md` is denied even while
+  `equipping` permits that directory, because the classifier resolves `notes.md` against the
+  project directory and never sees the `cd`. `cat > "$DIR/notes.md"` fails the same way. Use a
+  literal absolute path in the redirect. This is the mirror of the entry above — that one is the
+  classifier under-detecting, this one is it over-detecting — and both follow from command
+  classification being a lexical heuristic rather than a shell.
 - Command classification blanks quoted spans so that quoting an install in docs or a
   payload doesn't trip the gate, while still unwrapping `sh -c` and `eval` bodies. It is
   a good heuristic, not a shell parser.
